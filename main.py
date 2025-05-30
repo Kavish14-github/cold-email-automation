@@ -7,14 +7,14 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from dotenv import load_dotenv
 
-# Load env variables
+# Load environment variables
 load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 gmail_user = os.getenv("GMAIL_USER")
 gmail_password = os.getenv("GMAIL_PASS")
 
-# Connect to PostgreSQL
+# PostgreSQL connection
 conn = psycopg2.connect(
     host=os.getenv("DB_HOST"),
     dbname=os.getenv("DB_NAME"),
@@ -28,40 +28,34 @@ cursor = conn.cursor()
 with open("resume.txt", "r", encoding="utf-8") as file:
     resume_text = file.read()
 
-# Generate email content using OpenAI
+# Generate cold email
 def generate_email(company, job, description, resume_text):
     prompt = f"""
- You are a helpful assistant that writes professional, personalized cold emails for job applications.
+You are a helpful assistant that writes professional, personalized cold emails for job applications.
 
- Use the structure below and generate only the **email body**, starting from "Dear Hiring Manager," — do not include any section headers like 'Subject Line' or 'Email Body'.
+Use the structure below and generate only the **email body**, starting from "Dear Hiring Manager," — do not include any section headers like 'Subject Line' or 'Email Body'.
 
- Company: {company}  
- Role: {job}  
- Job Description: {description}
+Company: {company}  
+Role: {job}  
+Job Description: {description}
 
- ---
+Write the email in this format and stay under 200 words:
 
- Write the email in this format and stay under 200 words:
-
- 1. Start with a personalized hook showing excitement about {company}'s mission or product.
- 2. Briefly introduce me: I'm Kavish Khatri, a backend-focused software engineer with 3+ years of experience in building data pipelines and ML model serving systems.
- 3. Highlight relevant experiences in 3–4 bullet points:
+1. Start with a personalized hook showing excitement about {company}'s mission or product.
+2. Briefly introduce me: I'm Kavish Khatri, a backend-focused software engineer with 3+ years of experience in building data pipelines and ML model serving systems.
+3. Highlight relevant experiences in 3–4 bullet points:
     - Built Python/Node microservices and ML inference APIs on GCP and AWS
     - Integrated Redis/RabbitMQ for async workflows and analytics
     - Worked directly with founders on early-stage product direction and infra
- 4. Include my relevant links:
-     LinkedIn: https://www.linkedin.com/in/kavish-khatri/
-     GitHub: https://github.com/Kavish14-github
- 5. End with a call to action: express desire to join, and ask to set up a chat.
- 6. Add this signature:
+4. Include my relevant links:
+    LinkedIn: https://www.linkedin.com/in/kavish-khatri/
+    GitHub: https://github.com/Kavish14-github
+5. End with a call to action and add this signature:
 
- Best,  
- Kavish Khatri  
- kkhatri1411@gmail.com | 682-321-6296  
-
-
- Again, just return the full email body — do not include labels or explanations.
- """
+Best,  
+Kavish Khatri  
+kkhatri1411@gmail.com | 682-321-6296
+"""
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
@@ -70,16 +64,14 @@ def generate_email(company, job, description, resume_text):
     )
     return response['choices'][0]['message']['content']
 
-# Send email
+# Send email with resume
 def send_email(to_email, subject, body):
     msg = MIMEMultipart()
     msg['From'] = gmail_user
     msg['To'] = to_email
     msg['Subject'] = subject
-
     msg.attach(MIMEText(body, 'plain'))
 
-    # Attach resume
     with open("KavishKhatri.pdf", "rb") as f:
         part = MIMEApplication(f.read(), _subtype="pdf")
         part.add_header('Content-Disposition', 'attachment', filename="KavishKhatri.pdf")
@@ -89,7 +81,7 @@ def send_email(to_email, subject, body):
         server.login(gmail_user, gmail_password)
         server.send_message(msg)
 
-# Fetch pending rows
+# Fetch and send cold emails
 cursor.execute("SELECT id, company_name, job_title, job_description, recipient_email FROM applications WHERE status = 'pending'")
 rows = cursor.fetchall()
 
@@ -100,13 +92,12 @@ for row in rows:
 
     try:
         send_email(recipient, subject, email_body)
-        print(f"Email sent to {recipient}")
+        print(f"Cold email sent to {recipient}")
 
-        # Update status
         cursor.execute(
             "UPDATE applications SET status = 'sent', sent_at = NOW(), email_body = %s WHERE id = %s",
             (email_body, app_id)
         )
         conn.commit()
     except Exception as e:
-        print(f"Failed to send to {recipient}: {e}")
+        print(f"Failed to send email to {recipient}: {e}")
