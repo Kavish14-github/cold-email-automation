@@ -1,6 +1,28 @@
-.env
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Environment files
+.env
+venv/
+
+# Editor-specific files
+.vscode/
+.idea/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Sensitive or personal files
 resume.txt
 *.pdf
 ~$jobs.xlsx
+
+# Log files
+*.log
+
+# SQLite or database backups
+*.sqlite3
+*.db
+*.bak
