@@ -44,14 +44,14 @@ def send_email(to_email, subject, body):
 # Generate follow-up email
 def generate_followup(company, job):
     prompt = f"""
-Write a short, polite follow-up email (under 120 words) for a job application I sent 2+ days ago.
-
+Write a concise and professional follow-up email (under 120 words) for a job application I sent over 2 days ago.
 Company: {company}
 Role: {job}
+Do NOT repeat the subject line in body section of the email — assume it is already in the subject section of the email.
 
-Start with "Dear Hiring Manager,". Reaffirm interest. Be brief and professional.
+Start the email with: "Dear Hiring Manager,"
 
-Use this signature:
+Reaffirm interest in the position politely, and ask to shcedule a call at their convinience.
 
 Best,  
 Kavish Khatri  
