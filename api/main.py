@@ -2,6 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import BackgroundTasks
+from cold_email import run_cold_emails
 
 from . import models, schemas, crud
 from .database import SessionLocal, engine
@@ -49,3 +51,8 @@ def delete_application(application_id: int, db: Session = Depends(get_db)):
     if db_app is None:
         raise HTTPException(status_code=404, detail="Application not found")
     return {"ok": True}
+
+@app.post("/trigger-cold-emails")
+def trigger_cold_emails(background_tasks: BackgroundTasks):
+    background_tasks.add_task(run_cold_emails)
+    return {"message": "Cold email job started"}
