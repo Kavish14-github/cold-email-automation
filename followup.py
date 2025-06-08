@@ -1,3 +1,5 @@
+# followup_email.py
+
 import openai
 import smtplib
 import os
@@ -7,24 +9,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from dotenv import load_dotenv
 
-# Load env
 load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 gmail_user = os.getenv("GMAIL_USER")
 gmail_password = os.getenv("GMAIL_PASS")
 
-# DB connect
-conn = psycopg2.connect(
-    host=os.getenv("DB_HOST"),
-    dbname=os.getenv("DB_NAME"),
-    user=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASS"),
-    port=os.getenv("DB_PORT")
-)
-cursor = conn.cursor()
-
-# Send email with resume
 def send_email(to_email, subject, body):
     msg = MIMEMultipart()
     msg['From'] = gmail_user
@@ -41,7 +31,6 @@ def send_email(to_email, subject, body):
         server.login(gmail_user, gmail_password)
         server.send_message(msg)
 
-# Generate follow-up email
 def generate_followup(company, job):
     prompt = f"""
 Write a concise and professional follow-up email (under 120 words) for a job application I sent over 2 days ago.
@@ -51,7 +40,7 @@ Do NOT repeat the subject line in body section of the email — assume it is alr
 
 Start the email with: "Dear Hiring Manager,"
 
-Reaffirm interest in the position politely, and ask to shcedule a call at their convinience.
+Reaffirm interest in the position politely, and ask to schedule a call at their convenience.
 
 Best,  
 Kavish Khatri  
@@ -67,27 +56,46 @@ GitHub: https://github.com/Kavish14-github
     )
     return response['choices'][0]['message']['content']
 
-# Fetch and send follow-ups
-cursor.execute("""
-    SELECT id, company_name, job_title, recipient_email, sent_at
-    FROM applications
-    WHERE status = 'sent' AND sent_at <= NOW() - INTERVAL '2 days'
-""")
-rows = cursor.fetchall()
-
-for row in rows:
-    app_id, company, job, recipient, sent_at = row
-    followup_body = generate_followup(company, job)
-    subject = f"Following up on {job} at {company}"
-
+def run_followups():
     try:
-        send_email(recipient, subject, followup_body)
-        print(f"Follow-up sent to {recipient}")
-
-        cursor.execute(
-            "UPDATE applications SET status = 'followed_up' WHERE id = %s",
-            (app_id,)
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASS"),
+            port=os.getenv("DB_PORT"),
+            sslmode='require'
         )
-        conn.commit()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT id, company_name, job_title, recipient_email, sent_at
+            FROM applications
+            WHERE status = 'sent' AND sent_at <= NOW() - INTERVAL '2 days'
+        """)
+        rows = cursor.fetchall()
+
+        if not rows:
+            return {"status": "done", "message": "No follow-ups needed"}
+
+        for row in rows:
+            app_id, company, job, recipient, sent_at = row
+            followup_body = generate_followup(company, job)
+            subject = f"Following up on {job} at {company}"
+
+            try:
+                send_email(recipient, subject, followup_body)
+                print(f"Follow-up sent to {recipient}")
+
+                cursor.execute(
+                    "UPDATE applications SET status = 'followed_up' WHERE id = %s",
+                    (app_id,)
+                )
+                conn.commit()
+            except Exception as e:
+                print(f"Failed to send follow-up to {recipient}: {e}")
+
+        return {"status": "done", "message": f"{len(rows)} follow-ups sent"}
+
     except Exception as e:
-        print(f"Failed to send follow-up to {recipient}: {e}")
+        return {"status": "error", "message": str(e)}

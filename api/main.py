@@ -4,6 +4,7 @@ from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
 from main import run_cold_emails
+from followup import run_followups
 
 from . import models, schemas, crud
 from .database import SessionLocal, engine
@@ -56,3 +57,8 @@ def delete_application(application_id: int, db: Session = Depends(get_db)):
 def trigger_cold_emails(background_tasks: BackgroundTasks):
     background_tasks.add_task(run_cold_emails)
     return {"message": "Cold email job started"}
+
+@app.post("/trigger-followups")
+def trigger_followups(background_tasks: BackgroundTasks):
+    background_tasks.add_task(run_followups)
+    return {"message": "Follow-up job started in the background"}
