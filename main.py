@@ -1,4 +1,4 @@
-# cold_email.py
+# main.py
 
 import openai
 import smtplib

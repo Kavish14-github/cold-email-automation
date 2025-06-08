@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
-from cold_email import run_cold_emails
+from main import run_cold_emails
 
 from . import models, schemas, crud
 from .database import SessionLocal, engine
