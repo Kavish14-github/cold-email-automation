@@ -11,3 +11,8 @@ class ApplicationCreate(BaseModel):
     status: Optional[str] = "pending"
     sent_at: Optional[datetime] = None
     followed_up_at: Optional[datetime] = None
+
+class ApplicationResponse(ApplicationCreate):
+    id: int
+    class Config:
+        orm_mode = True
