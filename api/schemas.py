@@ -12,7 +12,9 @@ class ApplicationCreate(BaseModel):
     sent_at: Optional[datetime] = None
     followed_up_at: Optional[datetime] = None
 
+
 class ApplicationResponse(ApplicationCreate):
     id: int
+    created_at: datetime
     class Config:
         orm_mode = True

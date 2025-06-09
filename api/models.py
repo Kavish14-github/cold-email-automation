@@ -14,3 +14,4 @@ class Application(Base):
     status = Column(Text, nullable=True, default="pending")
     sent_at = Column(DateTime, nullable=True)
     followed_up_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
