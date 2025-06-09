@@ -42,6 +42,14 @@ def read_application(application_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Application not found")
     return db_app
 
+@app.get("/applications/status/{status}", response_model=List[schemas.ApplicationResponse])
+def get_applications_by_status(status: str, db: Session = Depends(get_db)):
+    valid_statuses = {"sent", "pending", "followed_up"}
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Invalid status value")
+    
+    return db.query(models.Application).filter(models.Application.status == status).all()
+
 @app.put("/applications/{application_id}", response_model=schemas.ApplicationResponse)
 def update_application(application_id: int, application: schemas.ApplicationCreate, db: Session = Depends(get_db)):
     return crud.update_application(db, application_id, application)
