@@ -3,9 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
-from main import run_cold_emails
+from main import run_cold_emails, generate_email, send_email
 from followup import run_followups
-from cold_email import generate_email, send_email  # reuse your logic
 from pathlib import Path
 
 from . import models, schemas, crud
