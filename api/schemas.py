@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from typing import List
 
 class ApplicationCreate(BaseModel):
     company_name: str
@@ -12,9 +13,11 @@ class ApplicationCreate(BaseModel):
     sent_at: Optional[datetime] = None
     followed_up_at: Optional[datetime] = None
 
-
 class ApplicationResponse(ApplicationCreate):
     id: int
     created_at: datetime
     class Config:
         orm_mode = True
+
+class IDList(BaseModel):
+    application_ids: List[int]

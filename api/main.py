@@ -5,8 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
 from main import run_cold_emails
 from followup import run_followups
+from cold_email import generate_email, send_email  # reuse your logic
+from pathlib import Path
 
 from . import models, schemas, crud
+from datetime import datetime
+
 from .database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
@@ -70,3 +74,40 @@ def trigger_cold_emails(background_tasks: BackgroundTasks):
 def trigger_followups(background_tasks: BackgroundTasks):
     background_tasks.add_task(run_followups)
     return {"message": "Follow-up job started in the background"}
+
+@app.post("/send-selected-emails")
+def send_selected_emails(payload: schemas.IDList, db: Session = Depends(get_db)):
+    resume_path = Path("resume.txt")
+    if not resume_path.exists():
+        raise HTTPException(status_code=500, detail="Resume file missing")
+
+    with open(resume_path, "r", encoding="utf-8") as file:
+        resume_text = file.read()
+
+    sent = []
+    errors = []
+
+    for app_id in payload.application_ids:
+        app = db.query(models.Application).filter(models.Application.id == app_id).first()
+        if not app:
+            errors.append({"id": app_id, "error": "Not found"})
+            continue
+
+        if app.status == "sent":
+            errors.append({"id": app_id, "error": "Already sent"})
+            continue
+
+        try:
+            email_body = generate_email(app.company_name, app.job_title, app.job_description, resume_text)
+            subject = f"Excited by {app.company_name}'s Mission—Interested in the {app.job_title} Role"
+            send_email(app.recipient_email, subject, email_body)
+
+            app.status = "sent"
+            app.sent_at = datetime.utcnow()
+            app.email_body = email_body
+            db.commit()
+            sent.append(app_id)
+        except Exception as e:
+            errors.append({"id": app_id, "error": str(e)})
+
+    return {"sent": sent, "errors": errors}
