@@ -4,7 +4,7 @@ from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
 from main import run_cold_emails, generate_email, send_email
-from followup import run_followups
+from followup import run_followups, run_followups_by_ids
 from pathlib import Path
 
 from . import models, schemas, crud
@@ -110,3 +110,7 @@ def send_selected_emails(payload: schemas.IDList, db: Session = Depends(get_db))
             errors.append({"id": app_id, "error": str(e)})
 
     return {"sent": sent, "errors": errors}
+
+@app.post("/send-selected-followups")
+def send_selected_followups(payload: schemas.IDList):
+    return run_followups_by_ids(payload.application_ids)

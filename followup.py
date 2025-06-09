@@ -8,6 +8,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from dotenv import load_dotenv
+from datetime import datetime
+
 
 load_dotenv()
 
@@ -96,6 +98,54 @@ def run_followups():
                 print(f"Failed to send follow-up to {recipient}: {e}")
 
         return {"status": "done", "message": f"{len(rows)} follow-ups sent"}
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+def run_followups_by_ids(application_ids):
+    sent = []
+    errors = []
+
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASS"),
+            port=os.getenv("DB_PORT"),
+            sslmode='require'
+        )
+        cursor = conn.cursor()
+
+        for app_id in application_ids:
+            cursor.execute("SELECT company_name, job_title, recipient_email, status FROM applications WHERE id = %s", (app_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                errors.append({"id": app_id, "error": "Not found"})
+                continue
+
+            company, job, recipient, status = row
+
+            if status == 'followed_up':
+                errors.append({"id": app_id, "error": "Already followed up"})
+                continue
+
+            try:
+                body = generate_followup(company, job)
+                subject = f"Following up on {job} at {company}"
+                send_email(recipient, subject, body)
+
+                cursor.execute(
+                    "UPDATE applications SET status = 'followed_up', followed_up_at = %s WHERE id = %s",
+                    (datetime.utcnow(), app_id)
+                )
+                conn.commit()
+                sent.append(app_id)
+
+            except Exception as e:
+                errors.append({"id": app_id, "error": str(e)})
+
+        return {"followed_up": sent, "errors": errors}
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
