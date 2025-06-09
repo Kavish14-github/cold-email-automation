@@ -1,0 +1,53 @@
+Kavish Khatri
+682-321-6296 kkhatri1411@gmail.com https://linkedin.com/in/kavish-khatri https://github.com/Kavish14-github
+
+SUMMARY
+Technology-focused Software Developer with 3+ years of combined academic, internship, and professional experience in building cloud- native, scalable applications. Proficient in Python, JavaScript, Node.js, and SQL with hands-on expertise in frameworks like React, FastAPI, and Angular. Skilled in designing RESTful APIs, deploying serverless architectures on AWS and Azure, and integrating OCR and NLP models for intelligent automation. Adept in Agile environments with a strong understanding of data structures and algorithms. Proven ability to collaborate across cross-functional teams to develop innovative, production-ready features from concept to deployment. 
+
+EDUCATION
+University of Texas at Arlington Aug 2022 - May 2024
+Master of Science, Computer Science
+Dharmsinh Desai University Aug 2018 - May 2022
+Bachelor of Technology, Information Technology
+
+EXPERIENCE
+Altum LLC Aug 2024 - Present
+Software Developer - Illinois, United States
+• Developed privacy-compliant solutions by designing an asynchronous FastAPI application for processing image-based PDF files, integrating Tesseract OCR and Azure OpenAI models to extract and analyze content aligned with user-defined templates. 
+• Engineered text vectorization processes using TF-IDF and Word2Vec models to extract relevant insights, enhancing content accuracy and enabling data-driven decisions. 
+• Tested and validated APIs with Pytest and Postman to ensure reliability and performance in cloud-based deployments. 
+
+University of Texas at Arlington Sep 2022 - Apr 2024
+Graduate Student Assistant - Texas, USA
+• Developed a dynamic carousel component for the university homepage using React and JavaScript, improving visual engagement
+and increasing click-through rates on key announcements. • Integrated a backend chatbot using Node.js and Python with Azure Bot Services and RESTful APIs, automating student FAQ
+responses and reducing manual support requests by 30%. • Managed a team of fifteen developers to deliver scalable, full-stack solutions for internal faculty tools and student services, applying
+Agile methodology, object-oriented principles, and data structures to improve performance and usability. 
+
+Spontaneous Enterprise Pvt. Ltd. Dec 2021 - Mar 2022
+REST API Developer - Ahmedabad, India
+• Developed and optimized over 45 RESTful APIs, utilizing Python, Node, and PostgreSQL to build scalable systems that optimize RESTful APIs to enhance data integration and align with system governance requirements. 
+• Leveraged AWS Lambda to implement serverless architecture for cost-efficient API deployment and improved system performance by reducing latency and enhancing overall throughput. 
+• Performed API validations using Pytest and Postman to ensure high availability. 
+
+Chintech Systems Jan 2020 - Nov 2020
+Software Developer - Ahmedabad, India
+
+• Collaborated with cross-functional teams to design and implement Azure Active Directory configurations, ensuring secure data migration and seamless integration within a Microsoft 365 (M365) environment. 
+• Played a critical role in the migration of data from Google services to Azure using Azure Data Migration Services, ensuring minimal downtime and optimal data integrity during the transition. 
+• Executed data visualization features using JavaScript and C#, enhancing user interaction and providing key insights for stakeholders
+through dynamic reporting. 
+
+PROJECTS
+Drowsiness Detection System
+• Developed a real-time drowsiness detection system using CNN and RNN, achieving 98% accuracy on 18,000 eye images for driver
+safety monitoring. 
+UAV Log Viewer with Intelligent Chatbot
+• Built an agentic chatbot-powered UAV log analysis tool using OpenAI and MAVLink data, enabling dynamic, flight-aware Q&A with
+anomaly detection and contextual reasoning over telemetry from .BIN files. 
+
+TECHNICAL SKILLS
+• Languages: Python, JavaScript (ES6+), Node.js, SQL, C#
+• Web & Frameworks: React, FastAPI,Angular, Express, MERN, Tailwind, Redux
+• Tools & Cloud: Git, Docker, Postman, AWS (Lambda, S3, EC2), Azure, Selenium
+• Concepts: OCR, NLP, TF-IDF, Word2Vec, REST, WebSockets, CI/CD, Agile, BDD, OOP, DSA
