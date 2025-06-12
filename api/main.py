@@ -66,8 +66,18 @@ def delete_application(application_id: int, db: Session = Depends(get_db)):
 
 @app.post("/trigger-cold-emails")
 def trigger_cold_emails(background_tasks: BackgroundTasks):
-    background_tasks.add_task(run_cold_emails)
-    return {"message": "Cold email job started"}
+    try:
+        print("Starting cold email background task...")
+        background_tasks.add_task(run_cold_emails)
+        return {
+            "status": "started",
+            "message": "Cold email job started in the background",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        error_msg = f"Failed to start cold email job: {str(e)}"
+        print(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @app.post("/trigger-followups")
 def trigger_followups(background_tasks: BackgroundTasks):
@@ -124,17 +134,18 @@ def upload_resume(file: UploadFile = File(...)):
     if file.content_type not in ["application/pdf", "text/plain"]:
         raise HTTPException(status_code=400, detail="Only .pdf or .txt files allowed")
 
-    file_path = uploads_dir / file.filename
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    # Optionally: store as fixed name for cold email script
+    # Determine the final path based on file type
     if file.filename.endswith(".pdf"):
         final_path = uploads_dir / "resume.pdf"
     else:
         final_path = uploads_dir / "resume.txt"
 
-    file_path.rename(final_path)
+    # If file exists, remove it first
+    if final_path.exists():
+        final_path.unlink()
+
+    # Save the file directly to the final path
+    with open(final_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
     return {"filename": final_path.name, "message": "Resume uploaded successfully"}
