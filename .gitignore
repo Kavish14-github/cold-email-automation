@@ -15,8 +15,6 @@ venv/
 Thumbs.db
 
 # Sensitive or personal files
-resume.txt
-*.pdf
 ~$jobs.xlsx
 
 # Log files
@@ -26,3 +24,5 @@ resume.txt
 *.sqlite3
 *.db
 *.bak
+
+uploads/
