@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,11 +6,11 @@ from fastapi import BackgroundTasks
 from main import run_cold_emails, generate_email, send_email
 from followup import run_followups, run_followups_by_ids
 from pathlib import Path
-
 from . import models, schemas, crud
 from datetime import datetime
-
 from .database import SessionLocal, engine
+import shutil
+from pathlib import Path
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -114,3 +114,27 @@ def send_selected_emails(payload: schemas.IDList, db: Session = Depends(get_db))
 @app.post("/send-selected-followups")
 def send_selected_followups(payload: schemas.IDList):
     return run_followups_by_ids(payload.application_ids)
+
+@app.post("/upload-resume")
+def upload_resume(file: UploadFile = File(...)):
+    uploads_dir = Path("uploads")
+    uploads_dir.mkdir(exist_ok=True)
+
+    # Optional: restrict to only .pdf or .txt
+    if file.content_type not in ["application/pdf", "text/plain"]:
+        raise HTTPException(status_code=400, detail="Only .pdf or .txt files allowed")
+
+    file_path = uploads_dir / file.filename
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Optionally: store as fixed name for cold email script
+    if file.filename.endswith(".pdf"):
+        final_path = uploads_dir / "resume.pdf"
+    else:
+        final_path = uploads_dir / "resume.txt"
+
+    file_path.rename(final_path)
+
+    return {"filename": final_path.name, "message": "Resume uploaded successfully"}

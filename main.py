@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
@@ -65,8 +66,12 @@ def send_email(to_email, subject, body):
 
 def run_cold_emails():
     try:
-        # Load resume once
-        with open("resume.txt", "r", encoding="utf-8") as file:
+        # Load uploaded resume
+        resume_path = Path("uploads/resume.txt")
+        if not resume_path.exists():
+            return {"status": "error", "message": "Uploaded resume.txt not found in /uploads"}
+
+        with open(resume_path, "r", encoding="utf-8") as file:
             resume_text = file.read()
 
         # DB connection

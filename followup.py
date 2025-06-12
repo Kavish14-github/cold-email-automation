@@ -1,4 +1,4 @@
-# followup_email.py
+# followup.py
 
 import openai
 import smtplib
@@ -9,7 +9,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from dotenv import load_dotenv
 from datetime import datetime
-
+from pathlib import Path
 
 load_dotenv()
 
@@ -24,9 +24,13 @@ def send_email(to_email, subject, body):
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
 
-    with open("KavishKhatri.pdf", "rb") as f:
+    resume_path = Path("uploads/resume.pdf")
+    if not resume_path.exists():
+        raise FileNotFoundError("Resume PDF not found in /uploads. Please upload it first.")
+
+    with open(resume_path, "rb") as f:
         part = MIMEApplication(f.read(), _subtype="pdf")
-        part.add_header('Content-Disposition', 'attachment', filename="KavishKhatri.pdf")
+        part.add_header('Content-Disposition', 'attachment', filename="resume.pdf")
         msg.attach(part)
 
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
