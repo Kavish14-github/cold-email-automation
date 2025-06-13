@@ -12,9 +12,11 @@ def get_items(db: Session, skip: int = 0, limit: int = 10):
     return db.query(models.Application).offset(skip).limit(limit).all()
 
 def create_application(db: Session, application: schemas.ApplicationCreate, user_id: str):
+    app_data = application.dict()
     db_app = models.Application(
-        **application.dict(),
-        user_id=user_id
+        **app_data,
+        user_id=user_id,
+        created_at=datetime.utcnow()
     )
     db.add(db_app)
     db.commit()

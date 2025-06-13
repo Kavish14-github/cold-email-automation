@@ -31,7 +31,6 @@ class ApplicationBase(BaseModel):
     status: str = "pending"
     sent_at: Optional[datetime] = None
     followed_up_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
 
     class Config:
         schema_extra = {
