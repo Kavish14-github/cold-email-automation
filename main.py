@@ -30,18 +30,20 @@ Based on the following resume, write a personalized cold email:
 {resume_text}
 
 Guidelines:
-1. Start with a personalized hook showing excitement about {company}'s mission or product.
-2. Briefly introduce the candidate using relevant information from their resume.
-3. Highlight 3-4 most relevant experiences from their resume that match the job requirements in bullet points.
-4. Include their contact information and professional links from the resume.
-5. Keep the tone professional but conversational.
-6. End with a clear call to action.
+1. Write in FIRST PERSON perspective (use "I", "my", "me").
+2. Start with a personalized hook showing excitement about {company}'s mission or product.
+3. Briefly introduce yourself using relevant information from the resume.
+4. Highlight 3-4 most relevant experiences from the resume that match the job requirements in bullet points.
+5. Include your contact information and professional links from the resume.
+6. Keep the tone professional but conversational.
+7. End with a clear call to action.
 
 IMPORTANT:
-- The email should be concise (under 150 words) and focus on how the candidate's specific experiences align with the role.
+- The email should be concise (under 150 words) and focus on how your specific experiences align with the role.
 - DO NOT include the subject line in the email body.
 - Start directly with the greeting (e.g., "Dear Hiring Manager,").
 - The subject line will be handled separately, so don't reference it in the body.
+- End with "Best Regards," followed by your full name on the next line.
 """
     response = openai.ChatCompletion.create(
         model="gpt-4",

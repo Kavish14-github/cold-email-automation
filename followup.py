@@ -70,18 +70,20 @@ Based on the following resume:
 {resume_text}
 
 Guidelines:
-1. Start with "Dear Hiring Manager,"
-2. Reaffirm interest in the position politely
-3. Reference specific qualifications from the resume that match the role
-4. Ask to schedule a call at their convenience
-5. Keep it brief and professional
-6. Include contact information from the resume
+1. Write in FIRST PERSON perspective (use "I", "my", "me").
+2. Start with "Dear Hiring Manager,"
+3. Reaffirm your interest in the position politely
+4. Reference your specific qualifications from the resume that match the role
+5. Ask to schedule a call at their convenience
+6. Keep it brief and professional
+7. Include your contact information from the resume
 
 IMPORTANT:
 - DO NOT include the subject line in the email body.
 - Start directly with the greeting.
 - The subject line will be handled separately, so don't reference it in the body.
 - Keep the tone professional and concise.
+- End with "Best Regards," followed by your full name on the next line.
 """
     response = openai.ChatCompletion.create(
         model="gpt-4",
