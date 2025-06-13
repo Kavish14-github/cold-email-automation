@@ -8,9 +8,13 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import PyPDF2
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from api import models, crud
+from email_utils import generate_followup, send_email
 
 load_dotenv()
 
@@ -59,204 +63,142 @@ def send_email(to_email, subject, body):
     except Exception as e:
         raise Exception(f"Error sending email: {str(e)}")
 
-def generate_followup(company, job, resume_text):
-    prompt = f"""
-Write a concise and professional follow-up email (under 100 words) for a job application I sent over 2 days ago.
+def get_resume_text(user_id: str) -> str:
+    """Get resume text from either PDF or TXT file."""
+    resume_path = Path(f"uploads/{user_id}/resume.txt")
+    if not resume_path.exists():
+        resume_path = Path(f"uploads/{user_id}/resume.pdf")
+        if not resume_path.exists():
+            raise HTTPException(status_code=500, detail="Resume file missing")
+    
+    with open(resume_path, "r", encoding="utf-8") as file:
+        return file.read()
 
-Company: {company}
-Role: {job}
+def generate_followup(company_name: str, job_title: str, original_email: str, resume_text: str) -> str:
+    """Generate a follow-up email using OpenAI."""
+    prompt = f"""Based on the following information, write a professional follow-up email that:
+1. References the original email
+2. Maintains interest in the position
+3. Adds new value or information
+4. Is concise and respectful
+5. Has a clear call to action
 
-Based on the following resume:
+Company: {company_name}
+Position: {job_title}
+Original Email:
+{original_email}
+
+Resume:
 {resume_text}
 
-Guidelines:
-1. Write in FIRST PERSON perspective (use "I", "my", "me").
-2. Start with "Dear Hiring Manager,"
-3. Reaffirm your interest in the position politely
-4. Reference your specific qualifications from the resume that match the role
-5. Ask to schedule a call at their convenience
-6. Keep it brief and professional
-7. Include your contact information from the resume
+Write the email body only, without subject line or signature."""
 
-IMPORTANT:
-- DO NOT include the subject line in the email body.
-- Start directly with the greeting.
-- The subject line will be handled separately, so don't reference it in the body.
-- Keep the tone professional and concise.
-- End with "Best Regards," followed by your full name on the next line.
-"""
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_tokens=300
-    )
-    return response['choices'][0]['message']['content']
-
-def run_followups():
     try:
-        # Load uploaded resume PDF and extract text
-        resume_pdf_path = Path("uploads/resume.pdf")
-        if not resume_pdf_path.exists():
-            error_msg = "Uploaded resume.pdf not found in /uploads"
-            print(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        print("Extracting text from resume PDF...")
-        try:
-            resume_text = extract_text_from_pdf(resume_pdf_path)
-            if not resume_text.strip():
-                error_msg = "No text could be extracted from the PDF. Please ensure the PDF is not scanned or image-based."
-                print(error_msg)
-                return {"status": "error", "message": error_msg}
-        except Exception as e:
-            error_msg = f"Error processing resume PDF: {str(e)}"
-            print(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASS"),
-            port=os.getenv("DB_PORT"),
-            sslmode='require'
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a professional email writer specializing in follow-up communications."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=500
         )
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT id, company_name, job_title, recipient_email, sent_at
-            FROM applications
-            WHERE status = 'sent' AND sent_at <= NOW() - INTERVAL '2 days'
-        """)
-        rows = cursor.fetchall()
-
-        if not rows:
-            return {"status": "done", "message": "No follow-ups needed"}
-
-        sent_count = 0
-        error_count = 0
-        errors = []
-
-        for row in rows:
-            app_id, company, job, recipient, sent_at = row
-            print(f"\nProcessing follow-up for {company}...")
-            
-            try:
-                print("Generating follow-up content...")
-                followup_body = generate_followup(company, job, resume_text)
-                subject = f"Following up on {job} at {company}"
-
-                print(f"Sending follow-up to {recipient}...")
-                send_email(recipient, subject, followup_body)
-
-                print("Updating database status...")
-                cursor.execute(
-                    "UPDATE applications SET status = 'followed_up' WHERE id = %s",
-                    (app_id,)
-                )
-                conn.commit()
-                print(f"Successfully sent follow-up to {recipient}")
-                sent_count += 1
-
-            except Exception as e:
-                error_msg = f"Failed to send follow-up to {recipient}: {str(e)}"
-                print(error_msg)
-                errors.append({"recipient": recipient, "error": str(e)})
-                error_count += 1
-                continue
-
-        summary = {
-            "status": "done",
-            "message": f"Process completed. Sent: {sent_count}, Errors: {error_count}",
-            "details": {
-                "sent_count": sent_count,
-                "error_count": error_count,
-                "errors": errors
-            }
-        }
-        print(f"\nProcess summary: {summary['message']}")
-        return summary
-
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        error_msg = f"Unexpected error in run_followups: {str(e)}"
-        print(error_msg)
-        return {"status": "error", "message": error_msg}
+        raise HTTPException(status_code=500, detail=f"Failed to generate follow-up: {str(e)}")
 
-def run_followups_by_ids(application_ids):
-    sent = []
-    errors = []
-
+def run_followups(user_id: str):
+    """Run follow-up generation for all sent applications that haven't been followed up."""
     try:
-        # Load uploaded resume PDF and extract text
-        resume_pdf_path = Path("uploads/resume.pdf")
-        if not resume_pdf_path.exists():
-            error_msg = "Uploaded resume.pdf not found in /uploads"
-            print(error_msg)
-            return {"status": "error", "message": error_msg}
+        # Get database session
+        from api.database import SessionLocal
+        db = SessionLocal()
+        
+        # Get user's resume
+        resume_text = get_resume_text(user_id)
+        
+        # Get sent applications that haven't been followed up
+        sent_apps = crud.get_user_applications_by_status(db, user_id, "sent")
+        
+        for app in sent_apps:
+            # Check if it's been at least 5 days since the original email
+            if not app.sent_at or (datetime.utcnow() - app.sent_at) < timedelta(days=5):
+                continue
+                
+            try:
+                followup_body = generate_followup(
+                    app.company_name,
+                    app.job_title,
+                    app.email_body,
+                    resume_text
+                )
+                subject = f"Following up: {app.job_title} Position at {app.company_name}"
+                send_email(app.recipient_email, subject, followup_body)
+                
+                # Update application status
+                app.status = "followed_up"
+                app.followup_body = followup_body
+                app.followup_sent_at = datetime.utcnow()
+                db.commit()
+                
+            except Exception as e:
+                print(f"Error processing follow-up for application {app.id}: {str(e)}")
+                continue
+        
+        db.close()
+        
+    except Exception as e:
+        print(f"Error in run_followups: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-        print("Extracting text from resume PDF...")
-        try:
-            resume_text = extract_text_from_pdf(resume_pdf_path)
-            if not resume_text.strip():
-                error_msg = "No text could be extracted from the PDF. Please ensure the PDF is not scanned or image-based."
-                print(error_msg)
-                return {"status": "error", "message": error_msg}
-        except Exception as e:
-            error_msg = f"Error processing resume PDF: {str(e)}"
-            print(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASS"),
-            port=os.getenv("DB_PORT"),
-            sslmode='require'
-        )
-        cursor = conn.cursor()
-
+def run_followups_by_ids(application_ids: list[int], user_id: str):
+    """Run follow-up generation for specific applications."""
+    try:
+        # Get database session
+        from api.database import SessionLocal
+        db = SessionLocal()
+        
+        # Get user's resume
+        resume_text = get_resume_text(user_id)
+        
+        sent = []
+        errors = []
+        
         for app_id in application_ids:
-            cursor.execute("SELECT company_name, job_title, recipient_email, status FROM applications WHERE id = %s", (app_id,))
-            row = cursor.fetchone()
-
-            if not row:
+            app = crud.get_user_application(db, app_id, user_id)
+            if not app:
                 errors.append({"id": app_id, "error": "Not found"})
                 continue
-
-            company, job, recipient, status = row
-
-            if status == 'followed_up':
-                errors.append({"id": app_id, "error": "Already followed up"})
-                continue
-
-            try:
-                print(f"\nProcessing follow-up for {company}...")
-                print("Generating follow-up content...")
-                body = generate_followup(company, job, resume_text)
-                subject = f"Following up on {job} at {company}"
                 
-                print(f"Sending follow-up to {recipient}...")
-                send_email(recipient, subject, body)
-
-                print("Updating database status...")
-                cursor.execute(
-                    "UPDATE applications SET status = 'followed_up', followed_up_at = %s WHERE id = %s",
-                    (datetime.utcnow(), app_id)
+            if app.status != "sent":
+                errors.append({"id": app_id, "error": "Application not in sent status"})
+                continue
+                
+            try:
+                followup_body = generate_followup(
+                    app.company_name,
+                    app.job_title,
+                    app.email_body,
+                    resume_text
                 )
-                conn.commit()
-                print(f"Successfully sent follow-up to {recipient}")
+                subject = f"Following up: {app.job_title} Position at {app.company_name}"
+                send_email(app.recipient_email, subject, followup_body)
+                
+                # Update application status
+                app.status = "followed_up"
+                app.followup_body = followup_body
+                app.followup_sent_at = datetime.utcnow()
+                db.commit()
+                
                 sent.append(app_id)
-
+                
             except Exception as e:
-                error_msg = f"Failed to send follow-up to {recipient}: {str(e)}"
-                print(error_msg)
                 errors.append({"id": app_id, "error": str(e)})
-
-        return {"followed_up": sent, "errors": errors}
-
+                continue
+        
+        db.close()
+        return {"sent": sent, "errors": errors}
+        
     except Exception as e:
-        error_msg = f"Unexpected error in run_followups_by_ids: {str(e)}"
-        print(error_msg)
-        return {"status": "error", "message": error_msg}
+        print(f"Error in run_followups_by_ids: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

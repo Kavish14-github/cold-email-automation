@@ -1,15 +1,15 @@
 # main.py
 
-import openai
-import smtplib
 import os
-import psycopg2
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
 from dotenv import load_dotenv
+from fastapi import HTTPException
 from pathlib import Path
-import PyPDF2
+from datetime import datetime
+from api import models, crud
+from email_utils import generate_email, send_email
+
+# This file is kept for backward compatibility
+# The main functionality has been moved to job_runner.py
 
 # Load environment variables
 load_dotenv()
@@ -18,66 +18,57 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 gmail_user = os.getenv("GMAIL_USER")
 gmail_password = os.getenv("GMAIL_PASS")
 
-def generate_email(company, job, description, resume_text):
-    prompt = f"""
-You are a helpful assistant that writes professional, personalized cold emails for job applications.
+def get_resume_text(user_id: str) -> str:
+    """Get resume text from either PDF or TXT file."""
+    resume_path = Path(f"uploads/{user_id}/resume.txt")
+    if not resume_path.exists():
+        resume_path = Path(f"uploads/{user_id}/resume.pdf")
+        if not resume_path.exists():
+            raise HTTPException(status_code=500, detail="Resume file missing")
+    
+    with open(resume_path, "r", encoding="utf-8") as file:
+        return file.read()
 
-Company: {company}  
-Role: {job}  
-Job Description: {description}
+def generate_email(company_name: str, job_title: str, job_description: str, resume_text: str) -> str:
+    """Generate a personalized cold email using OpenAI."""
+    prompt = f"""Based on the following resume and job details, write a personalized cold email that:
+1. Shows genuine interest in the company and role
+2. Highlights relevant experience from the resume
+3. Maintains a professional yet conversational tone
+4. Is concise and impactful
+5. Ends with a clear call to action
 
-Based on the following resume, write a personalized cold email:
+Resume:
 {resume_text}
 
-Guidelines:
-1. Write in FIRST PERSON perspective (use "I", "my", "me").
-2. Start with a personalized hook showing excitement about {company}'s mission or product.
-3. Briefly introduce yourself using relevant information from the resume.
-4. Highlight 3-4 most relevant experiences from the resume that match the job requirements in bullet points.
-5. Include your contact information and professional links from the resume.
-6. Keep the tone professional but conversational.
-7. End with a clear call to action.
+Job Details:
+Company: {company_name}
+Position: {job_title}
+Description: {job_description}
 
-IMPORTANT:
-- The email should be concise (under 150 words) and focus on how your specific experiences align with the role.
-- DO NOT include the subject line in the email body.
-- Start directly with the greeting (e.g., "Dear Hiring Manager,").
-- The subject line will be handled separately, so don't reference it in the body.
-- End with "Best Regards," followed by your full name on the next line.
-"""
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_tokens=500
-    )
-    return response['choices'][0]['message']['content']
-
-def send_email(to_email, subject, body):
-    msg = MIMEMultipart()
-    msg['From'] = gmail_user
-    msg['To'] = to_email
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
-
-    resume_path = Path("uploads/resume.pdf")
-    if not resume_path.exists():
-        raise FileNotFoundError("Resume PDF not found in /uploads. Please upload it first.")
+Write the email body only, without subject line or signature."""
 
     try:
-        with open(resume_path, "rb") as f:
-            part = MIMEApplication(f.read(), _subtype="pdf")
-            part.add_header('Content-Disposition', 'attachment', filename="Resume.pdf")
-            msg.attach(part)
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a professional email writer specializing in cold outreach."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        raise Exception(f"Error attaching resume: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate email: {str(e)}")
 
-    try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(gmail_user, gmail_password)
-            server.send_message(msg)
-    except Exception as e:
-        raise Exception(f"Error sending email: {str(e)}")
+def send_email(recipient: str, subject: str, body: str):
+    """Send email using configured email service."""
+    # Implement your email sending logic here
+    # For now, we'll just print the email details
+    print(f"Sending email to {recipient}")
+    print(f"Subject: {subject}")
+    print(f"Body: {body}")
 
 def extract_text_from_pdf(pdf_path):
     try:
@@ -94,101 +85,42 @@ def extract_text_from_pdf(pdf_path):
     except Exception as e:
         raise Exception(f"Error extracting text from PDF: {str(e)}")
 
-def run_cold_emails():
+def run_cold_emails(user_id: str):
+    """Run cold email generation for all pending applications."""
     try:
-        print("Starting cold email process...")
+        # Get database session
+        from api.database import SessionLocal
+        db = SessionLocal()
         
-        # Load uploaded resume PDF and extract text
-        resume_pdf_path = Path("uploads/resume.pdf")
-        if not resume_pdf_path.exists():
-            error_msg = "Uploaded resume.pdf not found in /uploads"
-            print(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        print("Extracting text from resume PDF...")
-        try:
-            resume_text = extract_text_from_pdf(resume_pdf_path)
-            if not resume_text.strip():
-                error_msg = "No text could be extracted from the PDF. Please ensure the PDF is not scanned or image-based."
-                print(error_msg)
-                return {"status": "error", "message": error_msg}
-        except Exception as e:
-            error_msg = f"Error processing resume PDF: {str(e)}"
-            print(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        # DB connection
-        print("Connecting to database...")
-        try:
-            conn = psycopg2.connect(
-                host=os.getenv("DB_HOST"),
-                dbname=os.getenv("DB_NAME"),
-                user=os.getenv("DB_USER"),
-                password=os.getenv("DB_PASS"),
-                port=os.getenv("DB_PORT"),
-                sslmode='require'
-            )
-            cursor = conn.cursor()
-            print("Database connection successful")
-        except Exception as db_error:
-            error_msg = f"Database connection failed: {str(db_error)}"
-            print(error_msg)
-            return {"status": "error", "message": error_msg}
-
-        print("Fetching pending applications...")
-        cursor.execute("SELECT id, company_name, job_title, job_description, recipient_email FROM applications WHERE status = 'pending'")
-        rows = cursor.fetchall()
-        print(f"Found {len(rows)} pending applications")
-
-        if not rows:
-            return {"status": "done", "message": "No pending applications"}
-
-        sent_count = 0
-        error_count = 0
-        errors = []
-
-        for row in rows:
-            app_id, company, job, description, recipient = row
-            print(f"\nProcessing application {app_id} for {company}...")
-            
+        # Get user's resume
+        resume_text = get_resume_text(user_id)
+        
+        # Get pending applications
+        pending_apps = crud.get_user_applications_by_status(db, user_id, "pending")
+        
+        for app in pending_apps:
             try:
-                print("Generating email content...")
-                email_body = generate_email(company, job, description, resume_text)
-                subject = f"Excited by {company}'s Mission—Interested in the {job} Role"
-                
-                print(f"Sending email to {recipient}...")
-                send_email(recipient, subject, email_body)
-
-                print("Updating database status...")
-                cursor.execute(
-                    "UPDATE applications SET status = 'sent', sent_at = NOW(), email_body = %s WHERE id = %s",
-                    (email_body, app_id)
+                email_body = generate_email(
+                    app.company_name,
+                    app.job_title,
+                    app.job_description,
+                    resume_text
                 )
-                conn.commit()
-                print(f"Successfully sent email to {recipient}")
-                sent_count += 1
-
+                subject = f"Excited by {app.company_name}'s Mission—Interested in the {app.job_title} Role"
+                send_email(app.recipient_email, subject, email_body)
+                
+                # Update application status
+                app.status = "sent"
+                app.sent_at = datetime.utcnow()
+                app.email_body = email_body
+                db.commit()
+                
             except Exception as e:
-                error_msg = f"Failed to send to {recipient}: {str(e)}"
-                print(error_msg)
-                errors.append({"recipient": recipient, "error": str(e)})
-                error_count += 1
-                # Continue with next application even if one fails
+                print(f"Error processing application {app.id}: {str(e)}")
                 continue
-
-        summary = {
-            "status": "done",
-            "message": f"Process completed. Sent: {sent_count}, Errors: {error_count}",
-            "details": {
-                "sent_count": sent_count,
-                "error_count": error_count,
-                "errors": errors
-            }
-        }
-        print(f"\nProcess summary: {summary['message']}")
-        return summary
-
+        
+        db.close()
+        
     except Exception as e:
-        error_msg = f"Unexpected error in run_cold_emails: {str(e)}"
-        print(error_msg)
-        return {"status": "error", "message": error_msg}
+        print(f"Error in run_cold_emails: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
