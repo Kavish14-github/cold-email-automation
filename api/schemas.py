@@ -66,3 +66,8 @@ class ApplicationUpdate(BaseModel):
 
 class IDList(BaseModel):
     ids: List[int]
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    email: str

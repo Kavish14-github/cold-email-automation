@@ -38,20 +38,22 @@ async def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         }
     }
 
-@app.post("/token", response_model=schemas.Token)
+@app.post("/token", response_model=schemas.LoginResponse)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     auth_response = await auth_handler.login(form_data.username, form_data.password)
-    return schemas.Token(
+    return schemas.LoginResponse(
         access_token=auth_response["session"].access_token,
-        token_type="bearer"
+        token_type="bearer",
+        email=form_data.username
     )
 
-@app.post("/login", response_model=schemas.Token)
+@app.post("/login", response_model=schemas.LoginResponse)
 async def login(user: schemas.UserLogin):
     auth_response = await auth_handler.login(user.email, user.password)
-    return schemas.Token(
+    return schemas.LoginResponse(
         access_token=auth_response["session"].access_token,
-        token_type="bearer"
+        token_type="bearer",
+        email=user.email
     )
 
 # Application endpoints (now user-specific)

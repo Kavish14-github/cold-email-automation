@@ -110,7 +110,8 @@ class AuthHandler:
             
             return {
                 "user": response.user,
-                "session": response.session
+                "session": response.session,
+                "email": email
             }
             
         except Exception as e:

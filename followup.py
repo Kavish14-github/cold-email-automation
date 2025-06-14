@@ -64,19 +64,23 @@ def send_email(to_email, subject, body):
         raise Exception(f"Error sending email: {str(e)}")
 
 def get_resume_text(user_id: str) -> str:
-    """Get resume text from either PDF or TXT file."""
-    resume_path = Path(f"uploads/{user_id}/resume.txt")
-    if not resume_path.exists():
-        resume_path = Path(f"uploads/{user_id}/resume.pdf")
-        if not resume_path.exists():
-            raise HTTPException(status_code=500, detail="Resume file missing")
-    
-    with open(resume_path, "r", encoding="utf-8") as file:
-        return file.read()
+    pdf_path = Path(f"uploads/{user_id}/resume.pdf")
+    if not pdf_path.exists():
+        raise Exception("Resume file missing")
 
-def generate_followup(company_name: str, job_title: str, original_email: str, resume_text: str) -> str:
+    try:
+        with open(pdf_path, "rb") as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            text = ""
+            for page in pdf_reader.pages:
+                text += page.extract_text() or ""
+            return text
+    except Exception as e:
+        raise Exception(f"Error reading resume PDF: {str(e)}")
+    
+def generate_followup(company_name: str, position: str, original_email: str, resume_text: str) -> str:
     """Generate a follow-up email using OpenAI."""
-    prompt = f"""Based on the following information, write a professional follow-up email that:
+    prompt = f"""Based on the following information, write a professional follow-up email (should be less than 100 words) that:
 1. References the original email
 2. Maintains interest in the position
 3. Adds new value or information
@@ -84,7 +88,7 @@ def generate_followup(company_name: str, job_title: str, original_email: str, re
 5. Has a clear call to action
 
 Company: {company_name}
-Position: {job_title}
+Position: {position}
 Original Email:
 {original_email}
 
@@ -128,11 +132,11 @@ def run_followups(user_id: str):
             try:
                 followup_body = generate_followup(
                     app.company_name,
-                    app.job_title,
+                    app.position,
                     app.email_body,
                     resume_text
                 )
-                subject = f"Following up: {app.job_title} Position at {app.company_name}"
+                subject = f"Following up: {app.position} Position at {app.company_name}"
                 send_email(app.recipient_email, subject, followup_body)
                 
                 # Update application status
@@ -177,11 +181,11 @@ def run_followups_by_ids(application_ids: list[int], user_id: str):
             try:
                 followup_body = generate_followup(
                     app.company_name,
-                    app.job_title,
+                    app.position,
                     app.email_body,
                     resume_text
                 )
-                subject = f"Following up: {app.job_title} Position at {app.company_name}"
+                subject = f"Following up: {app.position} Position at {app.company_name}"
                 send_email(app.recipient_email, subject, followup_body)
                 
                 # Update application status

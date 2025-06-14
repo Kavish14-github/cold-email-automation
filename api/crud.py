@@ -12,9 +12,8 @@ def get_items(db: Session, skip: int = 0, limit: int = 10):
     return db.query(models.Application).offset(skip).limit(limit).all()
 
 def create_application(db: Session, application: schemas.ApplicationCreate, user_id: str):
-    app_data = application.dict()
     db_app = models.Application(
-        **app_data,
+        **application.dict(),
         user_id=user_id,
         created_at=datetime.utcnow()
     )
@@ -103,8 +102,8 @@ def send_selected_emails(db: Session, application_ids: list[int], user_id: str):
             continue
 
         try:
-            email_body = generate_email(app.company_name, app.job_title, app.job_description, resume_text)
-            subject = f"Excited by {app.company_name}'s Mission—Interested in the {app.job_title} Role"
+            email_body = generate_email(app.company_name, app.position, app.job_description, resume_text)
+            subject = f"Excited by {app.company_name}'s Mission—Interested in the {app.position} Role"
             send_email(app.recipient_email, subject, email_body)
 
             app.status = "sent"
